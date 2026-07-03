@@ -1,0 +1,29 @@
+@import "tailwindcss";
+
+@theme {
+  /* SucreLab locked design system */
+  --color-ink: #14181F;
+  --color-panel: #181D26;
+  --color-panel-alt: #1E2430;
+  --color-paper: #EDE9DF;
+  --color-border: #2A3140;
+  --color-border-alt: #3A4150;
+  --color-amber: #C98A3E;   /* Skeptic / confidence */
+  --color-teal: #4C8C82;    /* Optimist / verified / research */
+  --color-muted: #8C93A3;
+  --color-muted-alt: #5A6272;
+
+  --font-display: Georgia, 'Times New Roman', serif;
+  --font-sans: Helvetica, Inter, system-ui, sans-serif;
+  --font-mono: 'JetBrains Mono', 'SF Mono', Menlo, monospace;
+}
+
+html, body, #root {
+  height: 100%;
+}
+
+body {
+  background-color: var(--color-ink);
+  color: var(--color-paper);
+  font-family: var(--font-sans);
+}
