@@ -1,0 +1,26 @@
+{
+  "name": "btl",
+  "version": "1.0.0",
+  "description": "",
+  "main": "index.js",
+  "scripts": {
+    "frontend": "npm run dev --prefix SucreLabs",
+    "backend": "npm run dev --prefix backend",
+    "dev": "concurrently \"npm run backend\" \"npm run frontend\""
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/Sucre-codes/Sucrelab.git"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "type": "commonjs",
+  "bugs": {
+    "url": "https://github.com/Sucre-codes/Sucrelab/issues"
+  },
+  "homepage": "https://github.com/Sucre-codes/Sucrelab#readme",
+  "devDependencies": {
+    "concurrently": "^10.0.3"
+  }
+}

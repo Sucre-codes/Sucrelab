@@ -1,3 +1,27 @@
+import DoctorAvatar from "./assets/Doctor.png";
+import EconomistAvatar from "./assets/economist.png";
+import EngineerAvatar from "./assets/engineer.png";
+import LawyerAvatar from "./assets/lawyer.png";
+import InvestorAvatar from "./assets/investor.png";
+import OptimistAvatar from "./assets/optimist.png";
+import PragmaticAvatar from "./assets/pragmatic.png";
+import SkepticAvatar from "./assets/skeptic.png";
+import TeacherAvatar from "./assets/teacher.png";
+import PMAvatar from "./assets/pm.png";
+
+const AVATAR_MAP: Record<string, string> = {
+  optimist: OptimistAvatar,
+  economist: EconomistAvatar,
+  engineer: EngineerAvatar,
+  lawyer: LawyerAvatar,
+  investor: InvestorAvatar,
+  teacher: TeacherAvatar,
+  pm: PMAvatar,
+  skeptic: SkepticAvatar,
+  doctor: DoctorAvatar,
+  pragmatist: PragmaticAvatar,
+};
+
 const COLOR_MAP: Record<string, string> = {
   teal: "var(--color-teal)",
   amber: "var(--color-amber)",
@@ -18,20 +42,19 @@ export default function PersonaAvatar({
   color: string;
   size?: number;
 }) {
-  const initial = label.trim().charAt(0).toUpperCase();
+  const key = label.trim().toLowerCase();
+  const avatar = AVATAR_MAP[key] 
+
   return (
-    <div
-      className="rounded-full flex items-center justify-center shrink-0 font-[family-name:var(--font-display)] font-semibold"
+    <img
+      src={avatar}
+      alt={label}
+      width={size}
+      height={size}
+      className="rounded-full object-cover shrink-0 border-2"
       style={{
-        width: size,
-        height: size,
-        backgroundColor: personaColor(color),
-        color: "var(--color-ink)",
-        fontSize: size * 0.42,
+        borderColor: personaColor(color),
       }}
-      aria-hidden
-    >
-      {initial}
-    </div>
+    />
   );
 }

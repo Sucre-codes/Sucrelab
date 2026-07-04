@@ -2,6 +2,7 @@ import { useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { getSessionId, resolvePersonas, type ModelId } from "./lib/api";
 import ModelSelectModal, { type PersonaOption } from "./ModelSelectModal";
+import logo from "./assets/logo.png";
 
 type Mode = "panel" | "research";
 
@@ -59,16 +60,21 @@ export default function App() {
       )}
 
       <aside
-        className={`fixed md:static inset-y-0 left-0 z-40 w-64 shrink-0 border-r border-[var(--color-border)] bg-[var(--color-panel)] flex flex-col p-4 gap-6 transition-transform duration-200 ${
+        className={`fixed md:static inset-y-0 left-0 z-40 w-64 shrink-0 border-r border-[var(--color-border)] bg-[var(--color-panel)] flex flex-col  gap-6 transition-transform duration-200 ${
           sidebarOpen ? "translate-x-0" : "-translate-x-full md:translate-x-0"
         }`}
       >
-        <div className="font-[family-name:var(--font-display)] text-xl tracking-wide">
-          SucreLab
-        </div>
-        <div className="text-xs uppercase tracking-widest text-[var(--color-muted)]">
+        <div className="flex flex-col items-center gap-3 justify-center">
+  <img
+    src={logo}
+    alt="SucreLab Logo"
+    className="h-54 w-auto object-contain"
+  />
+  <div className="text-xs uppercase tracking-widest text-[var(--color-muted)]">
           Think Better. Research Deeper. Decide Smarter.
         </div>
+</div>
+        
         <div className="flex-1" />
         <div className="text-xs text-[var(--color-muted-alt)]">
           Recent sessions coming soon
@@ -84,13 +90,24 @@ export default function App() {
           >
             ☰
           </button>
-          <span className="font-[family-name:var(--font-display)] text-lg">SucreLab</span>
+          <img
+  src={logo}
+  alt="SucreLab Logo"
+  className="h-30 w-auto object-contain"
+/>
+<h1 className="font-[family-name:var(--font-display)] text-5xl sm:text-6xl font-bold tracking-wide text-center ">
+    SucreLab
+  </h1>
         </div>
 
         <div className="flex-1 flex flex-col items-center justify-center p-6 sm:p-8 gap-6">
-          <h1 className="font-[family-name:var(--font-display)] text-2xl sm:text-3xl text-center max-w-xl">
-            What are you trying to think through?
-          </h1>
+           <h1 className="font-[family-name:var(--font-display)] text-5xl sm:text-6xl hidden sm:block font-bold tracking-wide text-center">
+    SucreLab
+  </h1>
+
+  <h2 className="font-[family-name:var(--font-display)] text-2xl sm:text-3xl text-center max-w-xl">
+    What are you trying to think through?
+  </h2>
 
           <div className="flex rounded-full border border-[var(--color-border)] overflow-hidden">
             <button
