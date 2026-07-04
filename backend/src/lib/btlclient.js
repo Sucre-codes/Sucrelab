@@ -7,9 +7,6 @@
 
 const BASE_URL = process.env.BTL_BASE_URL;
 const API_KEY = process.env.BTL_API_KEY;
-const DEFAULT_CHAT_MODEL = process.env.BTL_CHAT_MODEL || "gpt-4o-mini";
-const DEFAULT_EMBEDDING_MODEL =
-  process.env.BTL_EMBEDDING_MODEL || "text-embedding-3-small";
 
 function assertConfigured() {
   if (!BASE_URL || !API_KEY) {
@@ -27,17 +24,20 @@ function assertConfigured() {
  *
  * @param {Object} opts
  * @param {Array<{role: string, content: string}>} opts.messages
- * @param {string} [opts.model] - defaults to BTL_CHAT_MODEL, override per persona
+ * @param {string} opts.model - REQUIRED. No env-based default: the user
+ *   picks a model per persona in the UI (see lib/personas.js
+ *   ALLOWED_MODELS / sanitizeModel).
  * @param {number} [opts.temperature]
  * @param {(delta: string) => void} [opts.onToken]
  * @returns {Promise<string>} full response text
  */
 export async function streamChatCompletion({
   messages,
-  model = DEFAULT_CHAT_MODEL,
+  model,
   temperature = 0.7,
   onToken = () => {},
 }) {
+  if (!model) throw new Error("streamChatCompletion requires an explicit model");
   assertConfigured();
 
   const res = await fetch(`${BASE_URL}/chat/completions`, {
@@ -102,9 +102,10 @@ export async function streamChatCompletion({
  */
 export async function chatCompletion({
   messages,
-  model = DEFAULT_CHAT_MODEL,
+  model,
   temperature = 0.7,
 }) {
+  if (!model) throw new Error("chatCompletion requires an explicit model");
   assertConfigured();
 
   const res = await fetch(`${BASE_URL}/chat/completions`, {
@@ -131,7 +132,14 @@ export async function chatCompletion({
  * @param {string|string[]} input
  * @returns {Promise<number[][]>} one vector per input
  */
-export async function embed(input, model = DEFAULT_EMBEDDING_MODEL) {
+/**
+ * @deprecated BTL's runtime does not expose a /v1/embeddings endpoint --
+ * only chat completions. Calling this against BTL will 404. Left in place
+ * only in case a future model/gateway adds embedding support; Round 2
+ * conflict detection now uses lib/conflict.js (LLM-judged agreement)
+ * instead.
+ */
+export async function embed(input, model = "text-embedding-3-small") {
   assertConfigured();
 
   const res = await fetch(`${BASE_URL}/embeddings`, {

@@ -1,9 +1,23 @@
 // Full persona roster. Category auto-selection picks exactly 3 of these
 // per session — see selectPersonas() below.
 
+// Models the BTL runtime supports. The user picks one per persona in the
+// UI before a round starts -- there is no server-side default model
+// anymore (previously env-based, now always explicit per persona).
+export const ALLOWED_MODELS = [ "gpt-4.1-mini", "btl-2","grok-build-0.1", "deepseek-v4-flash"];
+export const FALLBACK_MODEL = "gpt-4.1-mini";
+
+export function sanitizeModel(model) {
+     if (!ALLOWED_MODELS.includes(model)) {
+    console.log(`Model "${model}" not in ALLOWED_MODELS, falling back to ${FALLBACK_MODEL}`);
+  }
+  return ALLOWED_MODELS.includes(model) ? model : FALLBACK_MODEL;
+ 
+}
+
 export const ROSTER = {
   optimist: {
-    role_label: "Optimist",
+    role_label: "Optimist", 
     color: "teal",
     system: `You are the Optimist on a decision panel. You genuinely believe in upside and possibility, but you're not naive — you argue for the best realistic case, grounded in specifics, not generic positivity.`,
   },
