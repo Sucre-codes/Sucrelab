@@ -1,8 +1,9 @@
 import { useState } from "react";
 import { useNavigate } from "react-router-dom";
-import { getSessionId, resolvePersonas, type ModelId } from "./lib/api";
+import { getSessionId, resolvePersonas, type ModelId, createResearchProject , type ResearchConfig } from "./lib/api";
 import ModelSelectModal, { type PersonaOption } from "./ModelSelectModal";
 import logo from "./assets/logo.png";
+import ResearchLabSetupModal from "./ResearchLabSetupModal";
 
 type Mode = "panel" | "research";
 
@@ -14,6 +15,7 @@ export default function App() {
   const [resolving, setResolving] = useState(false);
   const [modalPersonas, setModalPersonas] = useState<PersonaOption[]>([]);
   const [modalCategory, setModalCategory] = useState("");
+  const [creatingProject, setCreatingProject] = useState(false);
   const navigate = useNavigate();
 
   async function handleSubmit() {
@@ -21,9 +23,10 @@ export default function App() {
     getSessionId();
 
     if (mode === "research") {
-      // Research Studio lands in the 24-38h build window -- model selection
-      // will apply there too once it's wired, per the same picker pattern.
-      alert("Research Studio is next up in the build order -- not wired yet.");
+      // Research Lab doesn't need a server round-trip to show its setup
+      // modal -- config + model are collected up front, then the project
+      // is created once the user confirms.
+      setModalOpen(true);
       return;
     }
 
@@ -40,7 +43,7 @@ export default function App() {
     }
   }
 
-  function handleModelsConfirmed(models: Record<string, ModelId>) {
+  function handlePanelModelsConfirmed(models: Record<string, ModelId>) {
     const sessionId = crypto.randomUUID();
     setModalOpen(false);
     navigate(
@@ -50,6 +53,18 @@ export default function App() {
     );
   }
 
+  async function handleResearchConfigConfirmed(config: ResearchConfig, model: ModelId) {
+    setCreatingProject(true);
+    try {
+      const { project_id } = await createResearchProject(topic, config, model);
+      setModalOpen(false);
+      navigate(`/research-lab/${project_id}`);
+    } catch (err) {
+      alert((err as Error).message);
+    } finally {
+      setCreatingProject(false);
+    }
+  }
   return (
     <div className="flex h-full relative">
       {sidebarOpen && (
@@ -156,7 +171,15 @@ export default function App() {
         topic={topic}
         category={modalCategory}
         personas={modalPersonas}
-        onConfirm={handleModelsConfirmed}
+        onConfirm={handlePanelModelsConfirmed}
+        onCancel={() => setModalOpen(false)}
+      />
+      <ResearchLabSetupModal
+        open={modalOpen && mode === "research"}
+        topic={topic}
+        onConfirm={(config, model) => {
+          if (!creatingProject) handleResearchConfigConfirmed(config, model);
+        }}
         onCancel={() => setModalOpen(false)}
       />
     </div>

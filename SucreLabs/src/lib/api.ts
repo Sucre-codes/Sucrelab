@@ -315,6 +315,204 @@ export async function fetchPositions(session_id: string): Promise<PositionsRespo
   return res.json();
 }
 
+// ---------------------------------------------------------------------
+// Research Lab: document-centric workspace, not a chat. Separate SSE
+// vocabulary from the panel (status/notice/section_start/section_done vs
+// meta/persona_done/round_done), so this gets its own small consumer.
+// ---------------------------------------------------------------------
+
+export type ResearchConfig = {
+  academic_level: string;
+  writing_style: string;
+  length: string;
+  citation_style: string;
+  language: string;
+  audience: string;
+  year_range: string;
+  num_references: number;
+};
+
+export const CONFIG_DEFAULTS: ResearchConfig = {
+  academic_level: "Undergraduate",
+  writing_style: "Academic",
+  length: "Standard (2500-3500 words)",
+  citation_style: "APA",
+  language: "English",
+  audience: "General academic",
+  year_range: "last 10 years",
+  num_references: 8,
+};
+
+export type ProjectSection = { section_id: string; title: string; content: string; order: number };
+export type ProjectReference = { id: string; text: string };
+export type DerivedOutput = { type: string; content: string; created_at?: string };
+export type EditHistoryEntry = { timestamp: string; action: string; section_id: string | null; note: string };
+
+export type ResearchProject = {
+  project_id: string;
+  topic: string;
+  title: string;
+  model: string;
+  config: ResearchConfig;
+  status: "draft" | "generating" | "ready" | "archived";
+  research_notice: string;
+  sections: ProjectSection[];
+  references: ProjectReference[];
+  derived_outputs: DerivedOutput[];
+  edit_history: EditHistoryEntry[];
+  updated_at: string;
+  created_at: string;
+};
+
+export async function createResearchProject(
+  topic: string,
+  config: Partial<ResearchConfig>,
+  model: ModelId
+): Promise<{ project_id: string }> {
+  const res = await fetch("/api/research-lab/projects", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ topic, config, model }),
+  });
+  if (!res.ok) throw new Error("Failed to create research project");
+  return res.json();
+}
+
+export async function listResearchProjects(): Promise<{
+  projects: { project_id: string; title: string; topic: string; status: string; updated_at: string }[];
+}> {
+  const res = await fetch("/api/research-lab/projects");
+  if (!res.ok) throw new Error("Failed to list research projects");
+  return res.json();
+}
+
+export async function fetchResearchProject(project_id: string): Promise<ResearchProject> {
+  const res = await fetch(`/api/research-lab/projects/${project_id}`);
+  if (!res.ok) throw new Error("Failed to load research project");
+  return res.json();
+}
+
+export async function renameResearchProject(project_id: string, title: string): Promise<void> {
+  await fetch(`/api/research-lab/projects/${project_id}`, {
+    method: "PATCH",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ title }),
+  });
+}
+
+export async function archiveResearchProject(project_id: string, archived: boolean): Promise<void> {
+  await fetch(`/api/research-lab/projects/${project_id}`, {
+    method: "PATCH",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ status: archived ? "archived" : "ready" }),
+  });
+}
+
+export async function deleteResearchProject(project_id: string): Promise<void> {
+  await fetch(`/api/research-lab/projects/${project_id}`, { method: "DELETE" });
+}
+
+export async function duplicateResearchProject(project_id: string): Promise<{ project_id: string }> {
+  const res = await fetch(`/api/research-lab/projects/${project_id}/duplicate`, { method: "POST" });
+  return res.json();
+}
+
+export function exportResearchProjectUrl(project_id: string, format: "md" | "txt" | "docx"): string {
+  return `/api/research-lab/projects/${project_id}/export?format=${format}`;
+}
+
+type ResearchLabHandlers = {
+  onStatus?: (text: string) => void;
+  onNotice?: (text: string) => void;
+  onReferencesDone?: (references: ProjectReference[]) => void;
+  onSectionStart?: (section_id: string) => void;
+  onToken?: (section_id: string | null, delta: string) => void;
+  onSectionDone?: (section_id: string, content: string) => void;
+  onSectionError?: (section_id: string, message: string) => void;
+  onDerivedDone?: (type: string, content: string) => void;
+  onGenerationDone?: () => void;
+  onError?: (message: string) => void;
+};
+
+async function consumeResearchLabSSE(res: Response, handlers: ResearchLabHandlers): Promise<void> {
+  if (!res.body) throw new Error("No response body (streaming unsupported)");
+  const reader = res.body.getReader();
+  const decoder = new TextDecoder();
+  let buffer = "";
+
+  while (true) {
+    const { done, value } = await reader.read();
+    if (done) break;
+    buffer += decoder.decode(value, { stream: true });
+
+    const chunks = buffer.split("\n\n");
+    buffer = chunks.pop() || "";
+
+    for (const chunk of chunks) {
+      const lines = chunk.split("\n");
+      const eventLine = lines.find((l) => l.startsWith("event:"));
+      const dataLine = lines.find((l) => l.startsWith("data:"));
+      if (!dataLine) continue;
+      const event = eventLine?.slice(6).trim();
+      const data = JSON.parse(dataLine.slice(5).trim());
+
+      switch (event) {
+        case "status":
+          handlers.onStatus?.(data.text);
+          break;
+        case "notice":
+          handlers.onNotice?.(data.text);
+          break;
+        case "references_done":
+          handlers.onReferencesDone?.(data.references);
+          break;
+        case "section_start":
+          handlers.onSectionStart?.(data.section_id);
+          break;
+        case "token":
+          handlers.onToken?.(data.section_id, data.delta);
+          break;
+        case "section_done":
+          handlers.onSectionDone?.(data.section_id, data.content);
+          break;
+        case "section_error":
+          handlers.onSectionError?.(data.section_id, data.message);
+          break;
+        case "derived_done":
+          handlers.onDerivedDone?.(data.type, data.content);
+          break;
+        case "generation_done":
+          handlers.onGenerationDone?.();
+          break;
+        case "error":
+          handlers.onError?.(data.message);
+          break;
+      }
+    }
+  }
+}
+
+export async function streamGenerateResearchProject(
+  project_id: string,
+  handlers: ResearchLabHandlers
+): Promise<void> {
+  const res = await fetch(`/api/research-lab/projects/${project_id}/generate`, { method: "POST" });
+  return consumeResearchLabSSE(res, handlers);
+}
+
+export async function streamAssistantAction(
+  project_id: string,
+  body: { action: string; section_id?: string; instruction?: string },
+  handlers: ResearchLabHandlers
+): Promise<void> {
+  const res = await fetch(`/api/research-lab/projects/${project_id}/assistant`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(body),
+  });
+  return consumeResearchLabSSE(res, handlers);
+}
+
 export async function streamPersonaReply(
   { session_id, topic }: { session_id: string; topic: string },
   onToken: (delta: string) => void
