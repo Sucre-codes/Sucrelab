@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState } from "react";
-import { useParams } from "react-router-dom";
+import { useParams, useNavigate } from "react-router-dom";
+import { Menu, Sparkles } from "lucide-react";
 import {
   fetchResearchProject,
   streamGenerateResearchProject,
@@ -8,6 +9,7 @@ import {
   type ResearchProject,
   type ProjectSection,
 } from "./lib/api";
+import Logo from "./Logo";
 
 const SECTION_ACTIONS = [
   { id: "expand", label: "Expand" },
@@ -48,6 +50,7 @@ export default function ResearchLabPage() {
   const [outlineOpen, setOutlineOpen] = useState(false);
   const [assistantOpen, setAssistantOpen] = useState(false);
   const started = useRef(false);
+  const navigate = useNavigate();
 
   useEffect(() => {
     (async () => {
@@ -162,7 +165,7 @@ export default function ResearchLabPage() {
   const otherDerivedOutputs = project.derived_outputs.filter((d) => d.type !== "suggested_improvements");
 
   const AssistantPanelContent = (
-    <div className="flex flex-col gap-4 h-full overflow-y-auto p-4">
+    <div className="flex flex-col gap-4 flex-1 min-h-0 overflow-y-auto p-4">
       <div>
         <div className="flex items-center justify-between mb-2">
           <div className="text-xs uppercase tracking-widest text-[var(--color-muted)]">Suggested improvements</div>
@@ -303,7 +306,8 @@ export default function ResearchLabPage() {
           outlineOpen ? "translate-x-0" : "-translate-x-full md:translate-x-0"
         }`}
       >
-        <div className="font-[family-name:var(--font-display)] text-lg">Outline</div>
+        <Logo size={26} glow={false} onClick={() => navigate("/")} />
+        <div className="font-[family-name:var(--font-display)] text-lg text-[var(--color-muted)]">Outline</div>
         <div className="flex flex-col gap-1">
           {orderedSections.map((s) => (
             <button
@@ -327,8 +331,11 @@ export default function ResearchLabPage() {
       <main className="flex-1 flex flex-col overflow-hidden">
         <div className="flex items-center gap-3 p-4 border-b border-[var(--color-border)]">
           <button className="md:hidden text-[var(--color-paper)]" onClick={() => setOutlineOpen(true)} aria-label="Open outline">
-            ☰
+            <Menu size={20} />
           </button>
+          <span className="md:hidden">
+            <Logo size={22} withWordmark={false} onClick={() => navigate("/")} />
+          </span>
           <div className="flex-1 min-w-0">
             <h1 className="font-[family-name:var(--font-display)] text-lg truncate">{project.title}</h1>
             <p className="text-xs text-[var(--color-muted)]">
@@ -363,7 +370,7 @@ export default function ResearchLabPage() {
                     {s.title}
                   </button>
                 </li>
-              ))} 
+              ))}
             </ol>
           </div>
 
@@ -397,23 +404,29 @@ export default function ResearchLabPage() {
 
       {/* Desktop right sidebar: AI assistant */}
       <aside className="hidden md:flex w-80 shrink-0 border-l border-[var(--color-border)] bg-[var(--color-panel)] flex-col">
+        <div className="flex items-center gap-2 p-4 border-b border-[var(--color-border)]">
+          <Sparkles size={16} color="var(--color-amber)" />
+          <span className="font-[family-name:var(--font-display)] text-base">AI Research Assistant</span>
+        </div>
         {AssistantPanelContent}
       </aside>
 
       {/* Mobile: floating assistant button + bottom sheet */}
       <button
         onClick={() => setAssistantOpen(true)}
-        className="md:hidden fixed bottom-5 right-5 z-40 rounded-full bg-[var(--color-amber)] text-[var(--color-ink)] w-14 h-14 flex items-center justify-center text-xl shadow-lg"
+        className="md:hidden fixed bottom-5 right-5 z-40 rounded-full bg-[var(--color-amber)] text-[var(--color-ink)] w-14 h-14 flex items-center justify-center shadow-lg hover:brightness-110 transition-all"
         aria-label="Open AI assistant"
       >
-        ✦
+        <Sparkles size={22} />
       </button>
       {assistantOpen && (
         <div className="md:hidden fixed inset-0 z-50 flex items-end">
           <div className="absolute inset-0 bg-black/50" onClick={() => setAssistantOpen(false)} />
           <div className="relative w-full max-h-[85vh] bg-[var(--color-panel)] border-t border-[var(--color-border)] rounded-t-2xl flex flex-col">
             <div className="flex items-center justify-between p-4 border-b border-[var(--color-border)]">
-              <span className="font-[family-name:var(--font-display)] text-lg">AI Research Assistant</span>
+              <span className="flex items-center gap-2 font-[family-name:var(--font-display)] text-lg">
+                <Sparkles size={16} color="var(--color-amber)" /> AI Research Assistant
+              </span>
               <button onClick={() => setAssistantOpen(false)} className="text-[var(--color-muted)] text-sm">
                 Close
               </button>

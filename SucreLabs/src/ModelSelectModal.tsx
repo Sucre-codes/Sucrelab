@@ -44,7 +44,7 @@ export default function ModelSelectModal({
   return (
     <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center">
       <div className="absolute inset-0 bg-black/50" onClick={onCancel} aria-hidden />
-      <div className="relative w-full sm:max-w-md sm:rounded-lg rounded-t-2xl bg-[var(--color-panel)] border border-[var(--color-border)] p-5 flex flex-col gap-4 max-h-[85vh] overflow-y-auto">
+      <div className="relative w-full sm:max-w-md sm:rounded-lg rounded-t-2xl bg-[var(--color-panel)] border border-[var(--color-border)] shadow-2xl p-5 flex flex-col gap-4 max-h-[85vh] overflow-y-auto">
         <div>
           <h2 className="font-[family-name:var(--font-display)] text-lg">Choose a model per persona</h2>
           <p className="text-xs text-[var(--color-muted)] mt-1 truncate">{topic}</p>

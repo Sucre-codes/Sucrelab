@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from "react";
-import { useParams, useSearchParams } from "react-router-dom";
+import { useParams, useSearchParams, useNavigate } from "react-router-dom";
 import {
   streamRound1,
   streamRound2,
@@ -13,7 +13,9 @@ import {
 } from "./lib/api";
 import PersonaAvatar, { personaColor } from "./PersonaAvatar";
 import PersonaDrawer, { type PersonaHistoryEntry } from "./PersonaDrawer";
+import { Menu, Scale } from "lucide-react";
 import CurrentPositionsPanel from "./CurrentPositionsPanel";
+import Logo from "./Logo";
 
 type RoundTag = 1 | 2 | 3 | "moderator" | `followup-${number}`;
 
@@ -67,6 +69,7 @@ export default function PanelPage() {
 
   const started = useRef(false);
   const bottomRef = useRef<HTMLDivElement>(null);
+  const navigate = useNavigate();
 
   useEffect(() => {
     bottomRef.current?.scrollIntoView({ behavior: "smooth", block: "end" });
@@ -315,7 +318,9 @@ export default function PanelPage() {
           sidebarOpen ? "translate-x-0" : "-translate-x-full md:translate-x-0"
         }`}
       >
-        <div className="font-[family-name:var(--font-display)] text-xl tracking-wide">SucreLab</div>
+        <div className="font-[family-name:var(--font-display)] text-xl tracking-wide">
+          <Logo size={28} glow={false} onClick={() => navigate("/")} />
+        </div>
         {category && (
           <div className="text-xs uppercase tracking-widest text-[var(--color-muted)]">
             {category.replace(/_/g, " ")}
@@ -344,8 +349,11 @@ export default function PanelPage() {
       <main className="flex-1 flex flex-col overflow-hidden">
         <div className="flex items-center gap-3 p-4 border-b border-[var(--color-border)]">
           <button className="md:hidden text-[var(--color-paper)]" onClick={() => setSidebarOpen(true)} aria-label="Open sidebar">
-            ☰
+            <Menu size={20} />
           </button>
+          <span className="md:hidden">
+            <Logo size={22} withWordmark={false} onClick={() => navigate("/")} />
+          </span>
           <div className="flex-1 min-w-0">
             <h1 className="font-[family-name:var(--font-display)] text-lg truncate">{topic}</h1>
             <p className="text-xs text-[var(--color-muted)]">{status}</p>
@@ -398,8 +406,8 @@ export default function PanelPage() {
                   }
                 >
                   <div className="flex items-center justify-between gap-2 mb-1">
-                    <span className={`text-sm font-medium ${isModerator ? "font-[family-name:var(--font-display)] text-base" : ""}`}>
-                      {isModerator && "⚖ "}
+                    <span className={`flex items-center gap-1.5 text-sm font-medium ${isModerator ? "font-[family-name:var(--font-display)] text-base" : ""}`}>
+                      {isModerator && <Scale size={15} color="var(--color-paper)" />}
                       {meta.role_label}
                       {meta.model && !isModerator && (
                         <span className="ml-2 font-[family-name:var(--font-mono)] text-[10px] text-[var(--color-muted-alt)]">

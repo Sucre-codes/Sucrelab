@@ -19,8 +19,49 @@ export type Round1Handlers = {
   onError?: (message: string) => void;
 };
 
-export const ALLOWED_MODELS = ["btl-2", "gpt-4.1-mini", "nova-lite-v1", "deepseek-v4-flash"] as const;
+export const ALLOWED_MODELS = [ "gpt-4.1-mini","btl-2", "nova-lite-v1", "deepseek-v4-flash"] as const;
 export type ModelId = (typeof ALLOWED_MODELS)[number];
+
+export type PanelSessionSummary = {
+  session_id: string;
+  title: string;
+  topic: string;
+  category?: string;
+  archived: boolean;
+  created_at: string;
+  updated_at: string;
+};
+
+export async function listPanelSessions(): Promise<{ sessions: PanelSessionSummary[] }> {
+  const res = await fetch("/api/panel/sessions");
+  if (!res.ok) throw new Error("Failed to list sessions");
+  return res.json();
+}
+
+export async function renamePanelSession(session_id: string, title: string): Promise<void> {
+  await fetch(`/api/panel/sessions/${session_id}`, {
+    method: "PATCH",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ title }),
+  });
+}
+
+export async function archivePanelSession(session_id: string, archived: boolean): Promise<void> {
+  await fetch(`/api/panel/sessions/${session_id}`, {
+    method: "PATCH",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ archived }),
+  });
+}
+
+export async function deletePanelSession(session_id: string): Promise<void> {
+  await fetch(`/api/panel/sessions/${session_id}`, { method: "DELETE" });
+}
+
+export async function duplicatePanelSession(session_id: string): Promise<{ session_id: string }> {
+  const res = await fetch(`/api/panel/sessions/${session_id}/duplicate`, { method: "POST" });
+  return res.json();
+}
 
 export async function resolvePersonas(topic: string): Promise<{
   category: string;
@@ -417,7 +458,7 @@ export async function duplicateResearchProject(project_id: string): Promise<{ pr
   return res.json();
 }
 
-export function exportResearchProjectUrl(project_id: string, format: "pdf"|"md" | "txt" | "docx"): string {
+export function exportResearchProjectUrl(project_id: string, format: "md" | "txt" | "docx" | "pdf"): string {
   return `/api/research-lab/projects/${project_id}/export?format=${format}`;
 }
 

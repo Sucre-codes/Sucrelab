@@ -26,11 +26,17 @@ export default function CurrentPositionsPanel({
   onClose,
   data,
   loading,
+  title = "Current Positions",
+  subtitle = "Confidence trend across rounds",
+  moderatorLabel = "Moderator's synthesis",
 }: {
   open: boolean;
   onClose: () => void;
   data: PositionsResponse | null;
   loading: boolean;
+  title?: string;
+  subtitle?: string;
+  moderatorLabel?: string;
 }) {
   if (!open) return null;
 
@@ -40,8 +46,8 @@ export default function CurrentPositionsPanel({
       <div className="relative w-full sm:w-[480px] h-full bg-[var(--color-panel)] border-l border-[var(--color-border)] flex flex-col">
         <div className="flex items-center gap-3 p-4 border-b border-[var(--color-border)]">
           <div className="flex-1">
-            <div className="font-[family-name:var(--font-display)] text-lg">Current Positions</div>
-            <div className="text-xs text-[var(--color-muted)]">Confidence trend across rounds</div>
+            <div className="font-[family-name:var(--font-display)] text-lg">{title}</div>
+            <div className="text-xs text-[var(--color-muted)]">{subtitle}</div>
           </div>
           <button onClick={onClose} className="text-[var(--color-muted)] hover:text-[var(--color-paper)] text-sm px-2 py-1">
             Close
@@ -54,7 +60,7 @@ export default function CurrentPositionsPanel({
           {data?.moderator_summary && (
             <div className="rounded-lg border border-[var(--color-border-alt)] bg-[var(--color-panel-alt)] p-4">
               <div className="text-xs uppercase tracking-widest text-[var(--color-paper)] mb-2">
-                Moderator's synthesis
+                {moderatorLabel}
               </div>
               <div className="text-sm whitespace-pre-wrap">{data.moderator_summary}</div>
             </div>
