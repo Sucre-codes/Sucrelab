@@ -5,6 +5,7 @@ const SessionSchema = new mongoose.Schema({
   mode: { type: String, enum: ["panel", "research"], required: true },
   topic: { type: String, required: true },
   category: { type: String },
+   moderator_summary: { type: String, default: "" },
   created_at: { type: Date, default: Date.now },
 });
 

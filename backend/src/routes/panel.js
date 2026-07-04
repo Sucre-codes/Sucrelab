@@ -343,4 +343,164 @@ router.post("/followup", async (req, res) => {
   }
 });
 
+/**
+ * POST /api/panel/round3
+ * body: { session_id, topic }
+ *
+ * Final round: each persona gives their closing verdict, grounded in their
+ * own Round 2 position plus everyone else's, then -- once all 3 finish --
+ * a single Moderator synthesis call runs (not a persona; a neutral voice)
+ * that names where the panel converged, where it didn't, and gives a
+ * recommendation. Both stream over the same SSE connection so the client
+ * can render the moderator as one more message in the same thread.
+ */
+router.post("/round3", async (req, res) => {
+  const { session_id, topic } = req.body || {};
+  if (!session_id || !topic) {
+    return res.status(400).json({ error: "session_id and topic are required" });
+  }
+
+  res.writeHead(200, {
+    "Content-Type": "text/event-stream",
+    "Cache-Control": "no-cache",
+    Connection: "keep-alive",
+  });
+  const send = (event, data) => {
+    res.write(`event: ${event}\n`);
+    res.write(`data: ${JSON.stringify(data)}\n\n`);
+  };
+
+  try {
+    const docs = await Persona.find({ session_id });
+    if (docs.length === 0) {
+      send("error", { message: "No personas found for this session yet." });
+      return res.end();
+    }
+
+    send("meta", {
+      round: 3,
+      personas: docs.map((d) => ({
+        persona_id: d.persona_id,
+        role_label: d.role_label,
+        color: ROSTER[d.persona_id]?.color || "muted",
+      })),
+    });
+
+    // --- Round 3: final verdicts, fired in parallel ---
+    const tasks = docs.map(async (doc) => {
+      const persona = ROSTER[doc.persona_id] || { role_label: doc.role_label, system: "" };
+      const nextRound = (doc.confidence_history?.length || 0) + 1;
+      const others = docs.filter((d) => d.persona_id !== doc.persona_id);
+
+      let fullText = "";
+      try {
+        fullText = await streamChatCompletion({
+          model: doc.model || FALLBACK_MODEL,
+          messages: [
+            {
+              role: "system",
+              content: `${persona.system}\n\nThis is the FINAL round of a debate panel on: "${topic}".\nYour most recent position:\n${doc.belief_state}\n\nOther panelists' most recent positions:\n${others
+                .map((o) => `- ${o.role_label}: ${o.belief_state}`)
+                .join("\n")}\n\nGive your final verdict in 3-5 sentences: state clearly where you land after hearing the others, and whether anything changed your mind. End with a new line: "Confidence: N/10 — <one short reason>".`,
+            },
+            { role: "user", content: `Topic: ${topic}` },
+          ],
+          onToken: (delta) => send("token", { persona_id: doc.persona_id, delta }),
+        });
+
+        const confMatch = fullText.match(/Confidence:\s*(\d+)\/10\s*(?:—|-)?\s*(.*)/i);
+        const score = confMatch ? Number(confMatch[1]) : null;
+        const reason = confMatch ? confMatch[2].trim() : "";
+
+        await Persona.findOneAndUpdate(
+          { session_id, persona_id: doc.persona_id },
+          {
+            $set: { belief_state: fullText, updated_at: new Date() },
+            $push: {
+              current_position: fullText.split("\n")[0],
+              confidence_history: { round: nextRound, score, reason },
+            },
+          }
+        );
+
+        send("persona_done", { persona_id: doc.persona_id, fullText, confidence: score });
+        return { ...doc.toObject(), belief_state: fullText, role_label: doc.role_label };
+      } catch (err) {
+        send("persona_error", { persona_id: doc.persona_id, message: err.message });
+        return doc.toObject();
+      }
+    });
+
+    const finalDocs = await Promise.all(tasks);
+    send("round_done", { round: 3 });
+
+    // --- Moderator synthesis: one neutral voice, after everyone's final say ---
+    send("moderator_start", {});
+    let moderatorText = "";
+    try {
+      moderatorText = await streamChatCompletion({
+        model: FALLBACK_MODEL,
+        temperature: 0.4,
+        messages: [
+          {
+            role: "system",
+            content: `You are the neutral Moderator of a debate panel. You do not take a side. Given each panelist's final position on "${topic}", write a synthesis in 4-6 sentences: name concretely where the panel converged, name the specific point of remaining disagreement (if any), and end with one balanced, actionable recommendation for the person asking. Do not use the word "Confidence".`,
+          },
+          {
+            role: "user",
+            content: finalDocs.map((d) => `${d.role_label}: ${d.belief_state}`).join("\n\n"),
+          },
+        ],
+        onToken: (delta) => send("token", { persona_id: "moderator", delta }),
+      });
+
+      await Session.updateOne({ session_id }, { $set: { moderator_summary: moderatorText } });
+      send("persona_done", { persona_id: "moderator", fullText: moderatorText, confidence: null });
+    } catch (err) {
+        console.log("err:", err);
+        
+      send("persona_error", { persona_id: "moderator", message: err.message });
+    }
+
+    send("moderator_done", { fullText: moderatorText });
+  } catch (err) {
+    send("error", { message: err.message });
+  } finally {
+    res.end();
+  }
+});
+
+/**
+ * GET /api/panel/positions/:session_id
+ *
+ * Powers the Current Positions panel: every persona's confidence trend
+ * across all rounds so far, plus their latest stated position. Fetched
+ * on demand rather than reconstructed from client state, so it's correct
+ * even after a page refresh.
+ */
+router.get("/positions/:session_id", async (req, res) => {
+  const { session_id } = req.params;
+  try {
+    const [docs, session] = await Promise.all([
+      Persona.find({ session_id }),
+      Session.findOne({ session_id }),
+    ]);
+
+    res.json({
+      topic: session?.topic || "",
+      moderator_summary: session?.moderator_summary || "",
+      personas: docs.map((d) => ({
+        persona_id: d.persona_id,
+        role_label: d.role_label,
+        color: ROSTER[d.persona_id]?.color || "muted",
+        model: d.model,
+        current_position: d.current_position,
+        confidence_history: d.confidence_history,
+      })),
+    });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
 export default router;
