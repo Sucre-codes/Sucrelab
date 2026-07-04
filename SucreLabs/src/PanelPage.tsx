@@ -3,15 +3,19 @@ import { useParams, useSearchParams } from "react-router-dom";
 import {
   streamRound1,
   streamRound2,
+  streamRound3,
   streamFollowup,
+  fetchPositions,
   type PersonaMeta,
   type SimilarityMeta,
   type ModelId,
+  type PositionsResponse,
 } from "./lib/api";
 import PersonaAvatar, { personaColor } from "./PersonaAvatar";
 import PersonaDrawer, { type PersonaHistoryEntry } from "./PersonaDrawer";
+import CurrentPositionsPanel from "./CurrentPositionsPanel";
 
-type RoundTag = 1 | 2 | `followup-${number}`;
+type RoundTag = 1 | 2 | 3 | "moderator" | `followup-${number}`;
 
 type ChatEntry = {
   id: string;
@@ -24,9 +28,13 @@ type ChatEntry = {
   streaming?: boolean;
 };
 
+const MODERATOR_META: PersonaMeta = { persona_id: "moderator", role_label: "Moderator", color: "paper" };
+
 function roundLabelFor(tag: RoundTag): string {
   if (tag === 1) return "Round 1 — opening position";
   if (tag === 2) return "Round 2 — rebuttal";
+  if (tag === 3) return "Round 3 — final position";
+  if (tag === "moderator") return "Moderator synthesis";
   return "Follow-up";
 }
 
@@ -53,6 +61,9 @@ export default function PanelPage() {
   const [followupCount, setFollowupCount] = useState(0);
   const [drawerPersonaId, setDrawerPersonaId] = useState<string | null>(null);
   const [sidebarOpen, setSidebarOpen] = useState(false);
+  const [positionsOpen, setPositionsOpen] = useState(false);
+  const [positionsData, setPositionsData] = useState<PositionsResponse | null>(null);
+  const [positionsLoading, setPositionsLoading] = useState(false);
 
   const started = useRef(false);
   const bottomRef = useRef<HTMLDivElement>(null);
@@ -60,6 +71,11 @@ export default function PanelPage() {
   useEffect(() => {
     bottomRef.current?.scrollIntoView({ behavior: "smooth", block: "end" });
   }, [messages]);
+
+  function metaFor(personaId: string): PersonaMeta | null {
+    if (personaId === "moderator") return MODERATOR_META;
+    return personasMeta[personaId] || null;
+  }
 
   function upsertToken(personaId: string, roundTag: RoundTag, delta: string) {
     setMessages((prev) => {
@@ -145,7 +161,58 @@ export default function PanelPage() {
           onPersonaDone: ({ persona_id, confidence }) => markDone(persona_id, 2, confidence),
           onPersonaError: ({ persona_id, message }) =>
             upsertToken(persona_id, 2, `\n[error: ${message}]`),
-          onRoundDone: () => {
+          onRoundDone: () => setStatus("Round 2 complete. Moving to final positions…"),
+          onError: (message) => setStatus(`Error: ${message}`),
+        }
+      );
+
+      setMessages((prev) => [
+        ...prev,
+        { id: "divider-3", kind: "divider", text: "Round 3 — final positions" },
+      ]);
+
+      await streamRound3(
+        { session_id, topic },
+        {
+          onMeta: ({ personas }) => {
+            setStatus("Round 3: panelists are giving their final verdict…");
+            setMessages((prev) => [
+              ...prev,
+              ...personas.map((p) => ({
+                id: `${p.persona_id}-3`,
+                kind: "persona" as const,
+                personaId: p.persona_id,
+                roundTag: 3 as RoundTag,
+                roundLabel: roundLabelFor(3),
+                text: "",
+                confidence: null,
+                streaming: true,
+              })),
+            ]);
+          },
+          onToken: ({ persona_id, delta }) => upsertToken(persona_id, 3, delta),
+          onPersonaDone: ({ persona_id, confidence }) => markDone(persona_id, 3, confidence),
+          onPersonaError: ({ persona_id, message }) =>
+            upsertToken(persona_id, 3, `\n[error: ${message}]`),
+          onRoundDone: () => setStatus("Final positions in. Moderator is synthesizing…"),
+          onModeratorStart: () => {
+            setMessages((prev) => [
+              ...prev,
+              { id: "divider-mod", kind: "divider", text: "Moderator" },
+              {
+                id: "moderator-msg",
+                kind: "persona",
+                personaId: "moderator",
+                roundTag: "moderator",
+                roundLabel: roundLabelFor("moderator"),
+                text: "",
+                confidence: null,
+                streaming: true,
+              },
+            ]);
+          },
+          onModeratorDone: () => {
+            markDone("moderator", "moderator", null);
             setStatus("Discussion complete. Ask a follow-up to keep going.");
             setFollowupEnabled(true);
           },
@@ -168,10 +235,7 @@ export default function PanelPage() {
     setFollowupSending(true);
     setFollowupEnabled(false);
 
-    setMessages((prev) => [
-      ...prev,
-      { id: `user-${n}`, kind: "user", text: question },
-    ]);
+    setMessages((prev) => [...prev, { id: `user-${n}`, kind: "user", text: question }]);
 
     try {
       await streamFollowup(
@@ -206,6 +270,19 @@ export default function PanelPage() {
     }
   }
 
+  async function handleOpenPositions() {
+    setPositionsOpen(true);
+    setPositionsLoading(true);
+    try {
+      const data = await fetchPositions(session_id);
+      setPositionsData(data);
+    } catch {
+      setPositionsData(null);
+    } finally {
+      setPositionsLoading(false);
+    }
+  }
+
   function conflictLabelFor(personaId: string): string | null {
     const c = conflicts.find((c) => c.persona_id === personaId);
     if (!c?.conflicts_with) return null;
@@ -223,27 +300,20 @@ export default function PanelPage() {
       }));
   }
 
-  const drawerMeta = drawerPersonaId ? personasMeta[drawerPersonaId] : null;
+  const drawerMeta = drawerPersonaId ? metaFor(drawerPersonaId) : null;
 
   return (
     <div className="flex h-full relative">
-      {/* Mobile sidebar backdrop */}
       {sidebarOpen && (
-        <div
-          className="fixed inset-0 bg-black/50 z-30 md:hidden"
-          onClick={() => setSidebarOpen(false)}
-        />
+        <div className="fixed inset-0 bg-black/50 z-30 md:hidden" onClick={() => setSidebarOpen(false)} />
       )}
 
-      {/* Sidebar: overlay on mobile, static column on desktop */}
       <aside
         className={`fixed md:static inset-y-0 left-0 z-40 w-64 shrink-0 border-r border-[var(--color-border)] bg-[var(--color-panel)] flex flex-col p-4 gap-6 transition-transform duration-200 ${
           sidebarOpen ? "translate-x-0" : "-translate-x-full md:translate-x-0"
         }`}
       >
-        <div className="font-[family-name:var(--font-display)] text-xl tracking-wide">
-          SucreLab
-        </div>
+        <div className="font-[family-name:var(--font-display)] text-xl tracking-wide">SucreLab</div>
         {category && (
           <div className="text-xs uppercase tracking-widest text-[var(--color-muted)]">
             {category.replace(/_/g, " ")}
@@ -261,25 +331,31 @@ export default function PanelPage() {
             </button>
           ))}
         </div>
+        <button
+          onClick={handleOpenPositions}
+          className="mt-auto rounded-full border border-[var(--color-border-alt)] text-sm px-3 py-2 text-[var(--color-paper)] hover:bg-[var(--color-panel-alt)]"
+        >
+          Current Positions
+        </button>
       </aside>
 
       <main className="flex-1 flex flex-col overflow-hidden">
-        {/* Header */}
         <div className="flex items-center gap-3 p-4 border-b border-[var(--color-border)]">
-          <button
-            className="md:hidden text-[var(--color-paper)]"
-            onClick={() => setSidebarOpen(true)}
-            aria-label="Open sidebar"
-          >
+          <button className="md:hidden text-[var(--color-paper)]" onClick={() => setSidebarOpen(true)} aria-label="Open sidebar">
             ☰
           </button>
           <div className="flex-1 min-w-0">
             <h1 className="font-[family-name:var(--font-display)] text-lg truncate">{topic}</h1>
             <p className="text-xs text-[var(--color-muted)]">{status}</p>
           </div>
+          <button
+            onClick={handleOpenPositions}
+            className="hidden md:inline-block text-xs rounded-full border border-[var(--color-border-alt)] px-3 py-1.5 text-[var(--color-paper)] hover:bg-[var(--color-panel-alt)]"
+          >
+            Current Positions
+          </button>
         </div>
 
-        {/* Chat thread */}
         <div className="flex-1 overflow-y-auto p-4 flex flex-col gap-4">
           {messages.map((m) => {
             if (m.kind === "divider") {
@@ -296,21 +372,34 @@ export default function PanelPage() {
                 </div>
               );
             }
-            const meta = m.personaId ? personasMeta[m.personaId] : null;
+            const meta = m.personaId ? metaFor(m.personaId) : null;
             if (!meta) return null;
+            const isModerator = m.personaId === "moderator";
             const conflictLabel = m.roundTag === 2 && m.personaId ? conflictLabelFor(m.personaId) : null;
 
             return (
-              <div key={m.id} className="flex items-start gap-3 max-w-[95%] sm:max-w-[75%]">
-                <PersonaAvatar label={meta.role_label} color={meta.color} />
+              <div
+                key={m.id}
+                className={isModerator ? "self-center w-full max-w-[95%] sm:max-w-[85%]" : "flex items-start gap-3 max-w-[95%] sm:max-w-[75%]"}
+              >
+                {!isModerator && <PersonaAvatar label={meta.role_label} color={meta.color} />}
                 <div
-                  className="rounded-2xl rounded-tl-sm bg-[var(--color-panel)] border border-[var(--color-border)] px-4 py-3 flex-1"
-                  style={{ borderLeftColor: personaColor(meta.color), borderLeftWidth: 3 }}
+                  className={`rounded-2xl px-4 py-3 flex-1 ${
+                    isModerator
+                      ? "bg-[var(--color-panel-alt)] border border-[var(--color-border-alt)]"
+                      : "rounded-tl-sm bg-[var(--color-panel)] border border-[var(--color-border)]"
+                  }`}
+                  style={
+                    isModerator
+                      ? { borderColor: personaColor(meta.color) }
+                      : { borderLeftColor: personaColor(meta.color), borderLeftWidth: 3 }
+                  }
                 >
                   <div className="flex items-center justify-between gap-2 mb-1">
-                    <span className="text-sm font-medium">
+                    <span className={`text-sm font-medium ${isModerator ? "font-[family-name:var(--font-display)] text-base" : ""}`}>
+                      {isModerator && "⚖ "}
                       {meta.role_label}
-                      {meta.model && (
+                      {meta.model && !isModerator && (
                         <span className="ml-2 font-[family-name:var(--font-mono)] text-[10px] text-[var(--color-muted-alt)]">
                           {meta.model}
                         </span>
@@ -327,10 +416,10 @@ export default function PanelPage() {
                       {conflictLabel}
                     </div>
                   )}
-                  <div className="text-sm whitespace-pre-wrap line-clamp-4">
+                  <div className={`text-sm whitespace-pre-wrap ${isModerator ? "" : "line-clamp-4"}`}>
                     {m.text || <span className="text-[var(--color-muted-alt)]">thinking…</span>}
                   </div>
-                  {m.text.length > 0 && (
+                  {!isModerator && m.text.length > 0 && (
                     <button
                       onClick={() => setDrawerPersonaId(meta.persona_id)}
                       className="mt-1 text-xs text-[var(--color-teal)] hover:underline"
@@ -345,16 +434,13 @@ export default function PanelPage() {
           <div ref={bottomRef} />
         </div>
 
-        {/* Follow-up input */}
         <div className="border-t border-[var(--color-border)] p-3 flex gap-2">
           <input
             value={followupText}
             onChange={(e) => setFollowupText(e.target.value)}
             onKeyDown={(e) => e.key === "Enter" && handleFollowupSubmit()}
             disabled={!followupEnabled}
-            placeholder={
-              followupEnabled ? "Ask a follow-up…" : "Waiting for the discussion to finish…"
-            }
+            placeholder={followupEnabled ? "Ask a follow-up…" : "Waiting for the discussion to finish…"}
             className="flex-1 rounded-full bg-[var(--color-panel-alt)] border border-[var(--color-border)] px-4 py-2 text-sm outline-none focus:border-[var(--color-teal)] disabled:opacity-50"
           />
           <button
@@ -367,7 +453,7 @@ export default function PanelPage() {
         </div>
       </main>
 
-      {drawerMeta && (
+      {drawerMeta && drawerPersonaId !== "moderator" && (
         <PersonaDrawer
           open={!!drawerPersonaId}
           onClose={() => setDrawerPersonaId(null)}
@@ -376,6 +462,13 @@ export default function PanelPage() {
           history={historyFor(drawerMeta.persona_id)}
         />
       )}
+
+      <CurrentPositionsPanel
+        open={positionsOpen}
+        onClose={() => setPositionsOpen(false)}
+        data={positionsData}
+        loading={positionsLoading}
+      />
     </div>
   );
 }

@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import PersonaAvatar, { personaColor } from "./PersonaAvatar";
 import { ALLOWED_MODELS, type ModelId } from "./lib/api";
 
@@ -24,6 +24,20 @@ export default function ModelSelectModal({
   const [selections, setSelections] = useState<Record<string, ModelId>>(() =>
     Object.fromEntries(personas.map((p) => [p.persona_id, DEFAULT_MODEL]))
   );
+
+  // useState's initializer only runs once, at first mount -- and this
+  // component is mounted (with open=false, personas=[]) before the parent
+  // has resolved any personas. Without this effect, `selections` stays
+  // locked at `{}` forever, so any dropdown the user doesn't manually
+  // touch has no entry in the map, JSON.stringify silently drops it, and
+  // the server falls back to its default model instead of what's shown.
+  // Re-seed defaults every time the modal opens with the current personas.
+  useEffect(() => {
+    if (open) {
+      setSelections(Object.fromEntries(personas.map((p) => [p.persona_id, DEFAULT_MODEL])));
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [open, personas]);
 
   if (!open) return null;
 
@@ -73,7 +87,13 @@ export default function ModelSelectModal({
             Cancel
           </button>
           <button
-            onClick={() => onConfirm(selections)}
+            onClick={() => {
+              const complete: Record<string, ModelId> = { ...selections };
+              for (const p of personas) {
+                if (!complete[p.persona_id]) complete[p.persona_id] = DEFAULT_MODEL;
+              }
+              onConfirm(complete);
+            }}
             className="rounded-full bg-[var(--color-teal)] text-[var(--color-ink)] px-5 py-2 text-sm font-medium"
           >
             Start discussion

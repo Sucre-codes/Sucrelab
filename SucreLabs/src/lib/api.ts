@@ -19,7 +19,7 @@ export type Round1Handlers = {
   onError?: (message: string) => void;
 };
 
-export const ALLOWED_MODELS = [ "gpt-4.1-mini","btl-2", "grok-build-0.1", "deepseek-v4-flash"] as const;
+export const ALLOWED_MODELS = ["btl-2", "gpt-4.1-mini", "nova-lite-v1", "deepseek-v4-flash"] as const;
 export type ModelId = (typeof ALLOWED_MODELS)[number];
 
 export async function resolvePersonas(topic: string): Promise<{
@@ -221,6 +221,98 @@ export async function streamFollowup(
       }
     }
   }
+}
+
+export type Round3Handlers = {
+  onMeta?: (data: { round: number; personas: PersonaMeta[] }) => void;
+  onToken?: (data: { persona_id: string; delta: string }) => void;
+  onPersonaDone?: (data: { persona_id: string; fullText: string; confidence: number | null }) => void;
+  onPersonaError?: (data: { persona_id: string; message: string }) => void;
+  onRoundDone?: () => void;
+  onModeratorStart?: () => void;
+  onModeratorDone?: (data: { fullText: string }) => void;
+  onError?: (message: string) => void;
+};
+
+export async function streamRound3(
+  { session_id, topic }: { session_id: string; topic: string },
+  handlers: Round3Handlers
+): Promise<void> {
+  const res = await fetch("/api/panel/round3", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ session_id, topic }),
+  });
+
+  if (!res.body) throw new Error("No response body (streaming unsupported)");
+
+  const reader = res.body.getReader();
+  const decoder = new TextDecoder();
+  let buffer = "";
+
+  while (true) {
+    const { done, value } = await reader.read();
+    if (done) break;
+    buffer += decoder.decode(value, { stream: true });
+
+    const chunks = buffer.split("\n\n");
+    buffer = chunks.pop() || "";
+
+    for (const chunk of chunks) {
+      const lines = chunk.split("\n");
+      const eventLine = lines.find((l) => l.startsWith("event:"));
+      const dataLine = lines.find((l) => l.startsWith("data:"));
+      if (!dataLine) continue;
+      const event = eventLine?.slice(6).trim();
+      const data = JSON.parse(dataLine.slice(5).trim());
+
+      switch (event) {
+        case "meta":
+          handlers.onMeta?.(data);
+          break;
+        case "token":
+          handlers.onToken?.(data);
+          break;
+        case "persona_done":
+          handlers.onPersonaDone?.(data);
+          break;
+        case "persona_error":
+          handlers.onPersonaError?.(data);
+          break;
+        case "round_done":
+          handlers.onRoundDone?.();
+          break;
+        case "moderator_start":
+          handlers.onModeratorStart?.();
+          break;
+        case "moderator_done":
+          handlers.onModeratorDone?.(data);
+          break;
+        case "error":
+          handlers.onError?.(data.message);
+          break;
+      }
+    }
+  }
+}
+
+export type PositionsResponse = {
+  topic: string;
+  moderator_summary: string;
+  personas: {
+    persona_id: string;
+    role_label: string;
+    color: string;
+    model: string;
+    current_position: string[];
+    confidence_history: { round: number; score: number | null; reason: string }[];
+  }[];
+};
+
+export async function fetchPositions(session_id: string): Promise<PositionsResponse> {
+  const res = await fetch(`/api/panel/positions/${session_id}`);
+  if (!res.ok) throw new Error("Failed to load current positions");
+  return res.json();
 }
 
 export async function streamPersonaReply(

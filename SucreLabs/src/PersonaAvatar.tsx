@@ -2,6 +2,7 @@ const COLOR_MAP: Record<string, string> = {
   teal: "var(--color-teal)",
   amber: "var(--color-amber)",
   muted: "var(--color-muted)",
+   paper: "var(--color-paper)",
 };
 
 export function personaColor(color: string): string {
