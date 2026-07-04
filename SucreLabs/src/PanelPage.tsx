@@ -190,10 +190,12 @@ export default function PanelPage() {
               })),
             ]);
           },
-          onToken: ({ persona_id, delta }) => upsertToken(persona_id, 3, delta),
-          onPersonaDone: ({ persona_id, confidence }) => markDone(persona_id, 3, confidence),
+          onToken: ({ persona_id, delta }) =>
+            upsertToken(persona_id, persona_id === "moderator" ? "moderator" : 3, delta),
+          onPersonaDone: ({ persona_id, confidence }) =>
+            markDone(persona_id, persona_id === "moderator" ? "moderator" : 3, confidence),
           onPersonaError: ({ persona_id, message }) =>
-            upsertToken(persona_id, 3, `\n[error: ${message}]`),
+            upsertToken(persona_id, persona_id === "moderator" ? "moderator" : 3, `\n[error: ${message}]`),
           onRoundDone: () => setStatus("Final positions in. Moderator is synthesizing…"),
           onModeratorStart: () => {
             setMessages((prev) => [

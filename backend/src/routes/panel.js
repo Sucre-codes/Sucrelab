@@ -1,7 +1,7 @@
 import { Router } from "express";
 import { streamChatCompletion } from "../lib/btlclient.js";
 import { assessConflicts } from "../lib/conflict.js";
-import { ROSTER, selectPersonas, sanitizeModel, FALLBACK_MODEL } from "../lib/personas.js";
+import { ROSTER, selectPersonas, sanitizeModel, FALLBACK_MODEL, MODERATOR_MODEL } from "../lib/personas.js";
 import Session from "../models/Session.js";
 import Persona from "../models/Persona.js";
 
@@ -137,12 +137,12 @@ router.post("/round1", async (req, res) => {
  * POST /api/panel/round2
  * body: { session_id, topic }
  *
- * This is the runtime-prize differentiator: we embed each persona's Round 1
- * position via BTL's /embeddings endpoint, compute real pairwise cosine
- * similarity, and use the LOWEST-similarity pair per persona as their
- * assigned rebuttal target. This isn't decorative -- the actual number
- * decides who each persona is told to engage with, and gets sent back to
- * the client so the UI can render a real conflict graph, not a scripted one.
+ * This is the runtime-prize differentiator: an LLM-as-judge call scores
+ * every pair of Round 1 positions for agreement, and each persona is told
+ * to rebut whoever scored lowest against them (see lib/conflict.js for why
+ * this isn't embedding cosine similarity -- BTL has no /embeddings
+ * endpoint). The actual score decides who engages with whom, and is sent
+ * to the client so the UI shows the real number driving the pairing.
  */
 router.post("/round2", async (req, res) => {
   const { session_id, topic } = req.body || {};
@@ -439,7 +439,7 @@ router.post("/round3", async (req, res) => {
     let moderatorText = "";
     try {
       moderatorText = await streamChatCompletion({
-        model: FALLBACK_MODEL,
+        model: MODERATOR_MODEL,
         temperature: 0.4,
         messages: [
           {
@@ -457,8 +457,6 @@ router.post("/round3", async (req, res) => {
       await Session.updateOne({ session_id }, { $set: { moderator_summary: moderatorText } });
       send("persona_done", { persona_id: "moderator", fullText: moderatorText, confidence: null });
     } catch (err) {
-        console.log("err:", err);
-        
       send("persona_error", { persona_id: "moderator", message: err.message });
     }
 

@@ -6,7 +6,7 @@
 // anymore (previously env-based, now always explicit per persona).
 export const ALLOWED_MODELS = [ "gpt-4.1-mini", "btl-2","nova-lite-v1", "deepseek-v4-flash"];
 export const FALLBACK_MODEL = "gpt-4.1-mini";
-
+export const MODERATOR_MODEL = "gpt-4o-mini";
 export function sanitizeModel(model) {
      if (!ALLOWED_MODELS.includes(model)) {
     console.log(`Model "${model}" not in ALLOWED_MODELS, falling back to ${FALLBACK_MODEL}`);
