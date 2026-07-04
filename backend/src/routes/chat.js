@@ -1,5 +1,6 @@
 import { Router } from "express";
-import { streamChatCompletion } from "../lib/btlclient.js"
+import { streamChatCompletion } from "../lib/btlclient.js";
+import { sanitizeModel } from "../lib/personas.js";
 import Session from "../models/Session.js";
 import Persona from "../models/Persona.js";
 
@@ -44,7 +45,7 @@ router.post("/stream", async (req, res) => {
       { upsert: true }
     );
 
-    const usedModel = model || process.env.BTL_CHAT_MODEL 
+    const usedModel = sanitizeModel(model);
 
     let fullText = "";
     fullText = await streamChatCompletion({
@@ -85,4 +86,3 @@ router.post("/stream", async (req, res) => {
 });
 
 export default router;
- 

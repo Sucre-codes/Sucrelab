@@ -376,7 +376,44 @@ router.get("/projects/:id/export", async (req, res) => {
     }
   }
 
-  res.status(400).json({ error: `Unsupported format: ${format}. Supported: md, txt, docx. PDF is next.` });
+  if (format === "pdf") {
+    try {
+      const { default: PDFDocument } = await import("pdfkit");
+      const doc = new PDFDocument({ margin: 54 });
+      const chunks = [];
+      doc.on("data", (chunk) => chunks.push(chunk));
+      const done = new Promise((resolve) => doc.on("end", resolve));
+
+      doc.font("Helvetica-Bold").fontSize(22).text(title, { align: "center" });
+      doc.moveDown(2);
+
+      doc.font("Helvetica-Bold").fontSize(14).text("Table of Contents");
+      doc.moveDown(0.5);
+      doc.font("Helvetica").fontSize(11);
+      ordered.forEach((s) => doc.text(`•  ${s.title}`));
+      doc.addPage();
+
+      ordered.forEach((s, i) => {
+        if (i > 0) doc.moveDown(1.5);
+        doc.font("Helvetica-Bold").fontSize(15).text(s.title);
+        doc.moveDown(0.5);
+        doc.font("Helvetica").fontSize(11).text(s.content || "", { align: "left", lineGap: 3 });
+      });
+
+      doc.end();
+      await done;
+      const buffer = Buffer.concat(chunks);
+
+      res.setHeader("Content-Type", "application/pdf");
+      res.setHeader("Content-Disposition", `attachment; filename="${sanitizeFilename(title)}.pdf"`);
+      return res.send(buffer);
+    } catch (err) {
+      return res.status(500).json({ error: `pdf export failed: ${err.message}` });
+    }
+  }
+
+  
+  res.status(400).json({ error: `Unsupported format: ${format}. Supported: md, txt, docx, PDF .` });
 });
 
 function sanitizeFilename(name) {

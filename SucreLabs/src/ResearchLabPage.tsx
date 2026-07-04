@@ -156,9 +156,35 @@ export default function ResearchLabPage() {
   const orderedSections = [...project.sections].sort((a, b) => a.order - b.order);
   const activeSection = orderedSections.find((s) => s.section_id === activeSectionId);
   const words = wordCount(project.sections);
+  const suggestedImprovements = [...project.derived_outputs]
+    .reverse()
+    .find((d) => d.type === "suggested_improvements")?.content;
+  const otherDerivedOutputs = project.derived_outputs.filter((d) => d.type !== "suggested_improvements");
 
   const AssistantPanelContent = (
     <div className="flex flex-col gap-4 h-full overflow-y-auto p-4">
+      <div>
+        <div className="flex items-center justify-between mb-2">
+          <div className="text-xs uppercase tracking-widest text-[var(--color-muted)]">Suggested improvements</div>
+          <button
+            onClick={() => runAssistantAction("suggested_improvements", false)}
+            disabled={assistantBusy}
+            className="text-[10px] rounded-full border border-[var(--color-amber)] text-[var(--color-amber)] px-2 py-1 disabled:opacity-40"
+          >
+            Refresh
+          </button>
+        </div>
+        {suggestedImprovements ? (
+          <div className="text-sm whitespace-pre-wrap rounded-lg border border-[var(--color-border-alt)] bg-[var(--color-panel-alt)] p-3">
+            {suggestedImprovements}
+          </div>
+        ) : (
+          <div className="text-xs text-[var(--color-muted-alt)]">
+            No suggestions yet -- click Refresh once the document is ready.
+          </div>
+        )}
+      </div>
+
       <div>
         <div className="text-xs uppercase tracking-widest text-[var(--color-muted)] mb-2">
           {activeSection ? `Editing: ${activeSection.title}` : "Select a section to edit"}
@@ -214,10 +240,10 @@ export default function ResearchLabPage() {
         </button>
       </div>
 
-      {project.derived_outputs.length > 0 && (
+      {otherDerivedOutputs.length > 0 && (
         <div className="flex flex-col gap-3">
           <div className="text-xs uppercase tracking-widest text-[var(--color-muted)]">Generated notes</div>
-          {[...project.derived_outputs].reverse().map((d, i) => (
+          {[...otherDerivedOutputs].reverse().map((d, i) => (
             <div key={i} className="rounded-lg border border-[var(--color-border-alt)] bg-[var(--color-panel-alt)] p-3">
               <div className="text-[10px] uppercase tracking-widest text-[var(--color-amber)] mb-1">
                 {d.type.replace(/_/g, " ")}
@@ -229,6 +255,22 @@ export default function ResearchLabPage() {
       )}
 
       <div className="border-t border-[var(--color-border)] pt-3">
+        <div className="text-xs uppercase tracking-widest text-[var(--color-muted)] mb-2">
+          Source information ({project.references.length})
+        </div>
+        <div className="flex flex-col gap-1.5 max-h-40 overflow-y-auto">
+          {project.references.length === 0 && (
+            <div className="text-xs text-[var(--color-muted-alt)]">No references yet.</div>
+          )}
+          {project.references.map((r) => (
+            <div key={r.id} className="text-xs text-[var(--color-paper)] leading-snug">
+              {r.text}
+            </div>
+          ))}
+        </div>
+      </div>
+
+      <div className="border-t border-[var(--color-border)] pt-3">
         <div className="text-xs uppercase tracking-widest text-[var(--color-muted)] mb-2">Document stats</div>
         <div className="text-sm text-[var(--color-paper)]">{words} words · {project.references.length} references</div>
       </div>
@@ -236,7 +278,7 @@ export default function ResearchLabPage() {
       <div className="border-t border-[var(--color-border)] pt-3 flex flex-col gap-2">
         <div className="text-xs uppercase tracking-widest text-[var(--color-muted)]">Export</div>
         <div className="flex gap-2 flex-wrap">
-          {(["md", "txt", "docx"] as const).map((fmt) => (
+          {(["pdf", "docx", "md", "txt"] as const).map((fmt) => (
             <a
               key={fmt}
               href={exportResearchProjectUrl(project_id, fmt)}
@@ -310,8 +352,18 @@ export default function ResearchLabPage() {
             <h3 className="font-[family-name:var(--font-display)] text-lg mb-2">Table of Contents</h3>
             <ol className="text-sm text-[var(--color-muted)] list-decimal list-inside">
               {orderedSections.map((s) => (
-                <li key={s.section_id}>{s.title}</li>
-              ))}
+                <li key={s.section_id}>
+                  <button
+                    onClick={() => {
+                      setActiveSectionId(s.section_id);
+                      document.getElementById(`section-${s.section_id}`)?.scrollIntoView({ behavior: "smooth" });
+                    }}
+                    className="hover:text-[var(--color-amber)] hover:underline text-left"
+                  >
+                    {s.title}
+                  </button>
+                </li>
+              ))} 
             </ol>
           </div>
 

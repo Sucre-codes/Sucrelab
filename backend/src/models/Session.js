@@ -5,8 +5,11 @@ const SessionSchema = new mongoose.Schema({
   mode: { type: String, enum: ["panel", "research"], required: true },
   topic: { type: String, required: true },
   category: { type: String },
-   moderator_summary: { type: String, default: "" },
+  title: { type: String, default: "" }, // editable display title, defaults to topic
+  archived: { type: Boolean, default: false },
+  moderator_summary: { type: String, default: "" },
   created_at: { type: Date, default: Date.now },
+  updated_at: { type: Date, default: Date.now },
 });
 
 export default mongoose.models.Session ||

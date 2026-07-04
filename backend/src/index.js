@@ -8,7 +8,7 @@ import researchLabRouter from "./routes/researchLab.js";
 
 const app = express();
 app.use(cors());
-app.use(express.json());
+app.use(express.json()); 
 
 app.get("/api/health", (req, res) => res.json({ ok: true }));
 app.use("/api/chat", chatRouter);

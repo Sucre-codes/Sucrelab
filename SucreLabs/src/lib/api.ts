@@ -417,7 +417,7 @@ export async function duplicateResearchProject(project_id: string): Promise<{ pr
   return res.json();
 }
 
-export function exportResearchProjectUrl(project_id: string, format: "md" | "txt" | "docx"): string {
+export function exportResearchProjectUrl(project_id: string, format: "pdf"|"md" | "txt" | "docx"): string {
   return `/api/research-lab/projects/${project_id}/export?format=${format}`;
 }
 

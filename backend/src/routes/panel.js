@@ -1,5 +1,6 @@
 import { Router } from "express";
-import { streamChatCompletion } from "../lib/btlclient.js";
+import { randomUUID } from "crypto";
+import { streamChatCompletion } from "../lib/btlClient.js";
 import { assessConflicts } from "../lib/conflict.js";
 import { ROSTER, selectPersonas, sanitizeModel, FALLBACK_MODEL, MODERATOR_MODEL } from "../lib/personas.js";
 import Session from "../models/Session.js";
@@ -62,7 +63,10 @@ router.post("/round1", async (req, res) => {
   try {
     await Session.updateOne(
       { session_id },
-      { $set: { mode: "panel", topic, category }, $setOnInsert: { session_id } },
+      {
+        $set: { mode: "panel", topic, category, updated_at: new Date() },
+        $setOnInsert: { session_id, title: topic },
+      },
       { upsert: true }
     );
 
@@ -166,6 +170,7 @@ router.post("/round2", async (req, res) => {
       send("error", { message: "Need at least 2 personas with Round 1 positions before Round 2." });
       return res.end();
     }
+    await Session.updateOne({ session_id }, { $set: { updated_at: new Date() } });
 
     // Judge pairwise agreement via a single chat-completion call (BTL has
     // no /embeddings endpoint -- see lib/conflict.js for why).
@@ -286,6 +291,7 @@ router.post("/followup", async (req, res) => {
       send("error", { message: "No personas found for this session yet." });
       return res.end();
     }
+    await Session.updateOne({ session_id }, { $set: { updated_at: new Date() } });
 
     send("meta", {
       personas: docs.map((d) => ({
@@ -376,6 +382,7 @@ router.post("/round3", async (req, res) => {
       send("error", { message: "No personas found for this session yet." });
       return res.end();
     }
+    await Session.updateOne({ session_id }, { $set: { updated_at: new Date() } });
 
     send("meta", {
       round: 3,
@@ -499,6 +506,69 @@ router.get("/positions/:session_id", async (req, res) => {
   } catch (err) {
     res.status(500).json({ error: err.message });
   }
+});
+
+/** GET /api/panel/sessions -- for Recent Sessions, most recently active first. */
+router.get("/sessions", async (req, res) => {
+  const sessions = await Session.find({}).sort({ updated_at: -1 });
+  res.json({
+    sessions: sessions.map((s) => ({
+      session_id: s.session_id,
+      title: s.title || s.topic,
+      topic: s.topic,
+      category: s.category,
+      archived: s.archived,
+      created_at: s.created_at,
+      updated_at: s.updated_at,
+    })),
+  });
+});
+
+/** PATCH /api/panel/sessions/:id -- rename or archive. */
+router.patch("/sessions/:id", async (req, res) => {
+  const { title, archived } = req.body || {};
+  const update = { updated_at: new Date() };
+  if (title) update.title = title;
+  if (typeof archived === "boolean") update.archived = archived;
+
+  const session = await Session.findOneAndUpdate(
+    { session_id: req.params.id },
+    { $set: update },
+    { new: true }
+  );
+  if (!session) return res.status(404).json({ error: "Session not found" });
+  res.json(session);
+});
+
+/** DELETE /api/panel/sessions/:id -- removes the session and its personas. */
+router.delete("/sessions/:id", async (req, res) => {
+  await Promise.all([
+    Session.deleteOne({ session_id: req.params.id }),
+    Persona.deleteMany({ session_id: req.params.id }),
+  ]);
+  res.json({ deleted: true });
+});
+
+/**
+ * POST /api/panel/sessions/:id/duplicate
+ * Starts a fresh session on the same topic/category -- panel transcripts
+ * aren't meant to be cloned mid-debate, so this reruns rather than copies
+ * persona state.
+ */
+router.post("/sessions/:id/duplicate", async (req, res) => {
+  const original = await Session.findOne({ session_id: req.params.id });
+  if (!original) return res.status(404).json({ error: "Session not found" });
+
+  const newSessionId = randomUUID();
+  await Session.create({
+    session_id: newSessionId,
+    mode: original.mode,
+    topic: original.topic,
+    category: original.category,
+    title: `${original.title || original.topic} (new run)`,
+  });
+
+  res.json({ session_id: newSessionId });
 });
 
 export default router;
