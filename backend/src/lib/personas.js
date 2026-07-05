@@ -4,9 +4,9 @@
 // Models the BTL runtime supports. The user picks one per persona in the
 // UI before a round starts -- there is no server-side default model
 // anymore (previously env-based, now always explicit per persona).
-export const ALLOWED_MODELS = [ "gpt-4.1-mini", "btl-2","nova-lite-v1", "deepseek-v4-flash"];
+export const ALLOWED_MODELS = [ "gpt-4.1-mini", "btl-2","nova-lite-v1", "deepseek-v4-flash","gemma-3-27b-it","seed-1.6-flash","ring-2.6-1t","llama-3.3-70b-instruct","granite-4.1-8b","gemini-2.5-pro","grok-build-0.1"];
 export const FALLBACK_MODEL = "gpt-4.1-mini";
-export const MODERATOR_MODEL = "gpt-4o-mini";
+export const MODERATOR_MODEL = "gpt-4o-mini"; 
 export function sanitizeModel(model) {
      if (!ALLOWED_MODELS.includes(model)) {
     console.log(`Model "${model}" not in ALLOWED_MODELS, falling back to ${FALLBACK_MODEL}`);

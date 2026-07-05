@@ -33,7 +33,7 @@ export default function Signup() {
         <form onSubmit={handleSubmit} className="w-full flex flex-col gap-4">
           <div>
             <h1 className="font-[family-name:var(--font-display)] text-2xl text-center mb-1">Create your workspace</h1>
-            <p className="text-sm text-[var(--color-muted)] text-center">Your sessions stay private to your account</p>
+            <p className="text-sm text-[var(--color-muted)] text-center">Your AI partner for deep thinking and research</p>
           </div>
 
           {error && (

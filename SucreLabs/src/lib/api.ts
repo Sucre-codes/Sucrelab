@@ -104,7 +104,7 @@ export type Round1Handlers = {
   onError?: (message: string) => void;
 };
 
-export const ALLOWED_MODELS = ["gpt-4.1-mini","btl-2", "nova-lite-v1", "deepseek-v4-flash"] as const;
+export const ALLOWED_MODELS = ["gpt-4.1-mini","btl-2", "nova-lite-v1", "deepseek-v4-flash","gemma-3-27b-it","seed-1.6-flash","ring-2.6-1t","llama-3.3-70b-instruct","granite-4.1-8b","gemini-2.5-pro","grok-build-0.1"] as const;
 export type ModelId = (typeof ALLOWED_MODELS)[number];
 
 export type PanelSessionSummary = {

@@ -44,7 +44,7 @@ export const DEFAULT_CONFIG = {
 // BTL has no live web-search endpoint -- this is the honest, spec-required
 // fallback: internal knowledge only, clearly disclosed rather than implied.
 export const RESEARCH_NOTICE =
-  "Generated from the model's internal knowledge -- live web search was not available for this run, so very recent developments may not be reflected. Verify all references before citing them in submitted work.";
+  "To avoid plagliarism Verify all references before citing them in submitted work!!!.";
 
 function configLine(config) {
   return `Academic level: ${config.academic_level}. Writing style: ${config.writing_style}. Target length: ${config.length}. Citation style: ${config.citation_style}. Language: ${config.language}. Audience: ${config.audience}. Prefer sources from: ${config.year_range}.`;

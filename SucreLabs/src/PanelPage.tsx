@@ -292,7 +292,7 @@ export default function PanelPage() {
     const c = conflicts.find((c) => c.persona_id === personaId);
     if (!c?.conflicts_with) return null;
     const partner = personasMeta[c.conflicts_with]?.role_label;
-    return partner ? `rebutting ${partner} · agreement ${c.similarity}` : null;
+    return partner ? `rebutting ${partner} ·` : null;
   }
 
   function historyFor(personaId: string): PersonaHistoryEntry[] {

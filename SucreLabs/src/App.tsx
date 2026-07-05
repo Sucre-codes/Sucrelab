@@ -148,7 +148,7 @@ export default function App() {
           <Logo size={26} />
         </div>
 
-        <div className="flex-1 overflow-y-auto flex flex-col items-center justify-center p-6 sm:p-10 relative">
+        <div className="flex-1 overflow-y-auto flex flex-col items-center justify-start md:justify-center pt-10 px-6 pb-8 sm:p-10 relative">
           {/* Signature ambient glow behind the hero, echoing the logo's lit bulb */}
           <div
             className="pointer-events-none absolute top-1/4 left-1/2 -translate-x-1/2 w-[560px] h-[560px] rounded-full blur-[100px] opacity-25"
@@ -170,7 +170,7 @@ export default function App() {
                 Leave with a sharper answer.
               </h1>
               <p className="text-sm text-[var(--color-muted)] max-w-md mx-auto">
-                Put it to a live panel of AI experts, or turn it into a fully sourced research document —
+                Put it to a live panel of AI experts, or turn it into a fully sourced research document!! 
                 same workspace, either direction.
               </p>
             </div>
