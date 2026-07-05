@@ -1,6 +1,6 @@
 import { Router } from "express";
 import { randomUUID } from "crypto";
-import { streamChatCompletion } from "../lib/btlClient.js";
+import { streamChatCompletion } from "../lib/btlclient.js";
 import { assessConflicts } from "../lib/conflict.js";
 import { ROSTER, selectPersonas, sanitizeModel, FALLBACK_MODEL, MODERATOR_MODEL } from "../lib/personas.js";
 import Session from "../models/Session.js";

@@ -7,7 +7,7 @@ import OptimistAvatar from "./assets/optimist.png";
 import PragmaticAvatar from "./assets/pragmatic.png";
 import SkepticAvatar from "./assets/skeptic.png";
 import TeacherAvatar from "./assets/teacher.png";
-import PMAvatar from "./assets/pm.png";
+import PMAvatar from "./assets/PM.png";
 
 const AVATAR_MAP: Record<string, string> = {
   optimist: OptimistAvatar,
