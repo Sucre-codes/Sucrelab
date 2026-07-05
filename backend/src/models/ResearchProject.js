@@ -40,6 +40,7 @@ const ReferenceSchema = new mongoose.Schema(
 
 const ResearchProjectSchema = new mongoose.Schema({
   project_id: { type: String, required: true, unique: true, index: true },
+  user_id: { type: String, required: true, index: true },
   topic: { type: String, required: true },
   title: { type: String, default: "" }, // editable display title, defaults to topic
   model: { type: String, required: true },

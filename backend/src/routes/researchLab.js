@@ -25,6 +25,7 @@ const TITLE_BY_ID = Object.fromEntries(SECTION_DEFS.map((s) => [s.id, s.title]))
  * config form before anything runs.
  */
 router.post("/projects", async (req, res) => {
+  const userid  = req.user.id;
   const { topic, config = {}, model } = req.body || {};
   if (!topic) return res.status(400).json({ error: "topic is required" });
 
@@ -37,6 +38,7 @@ router.post("/projects", async (req, res) => {
     title: topic,
     model: sanitizeModel(model),
     config: mergedConfig,
+    user_id: userid,
     status: "draft",
     sections: SECTION_DEFS.map((s, i) => ({ section_id: s.id, title: s.title, content: "", order: i })),
   });
@@ -46,7 +48,8 @@ router.post("/projects", async (req, res) => {
 
 /** GET /api/research-lab/projects -- list, most recently updated first. */
 router.get("/projects", async (req, res) => {
-  const projects = await ResearchProject.find({}, "project_id title topic status updated_at created_at").sort({
+  const userid  = req.user.id;
+  const projects = await ResearchProject.find({ user_id: userid }, "project_id title topic status updated_at created_at").sort({
     updated_at: -1,
   });
   res.json({ projects });
@@ -54,20 +57,22 @@ router.get("/projects", async (req, res) => {
 
 /** GET /api/research-lab/projects/:id -- full project for the workspace. */
 router.get("/projects/:id", async (req, res) => {
-  const project = await ResearchProject.findOne({ project_id: req.params.id });
+  const userid  = req.user.id;
+  const project = await ResearchProject.findOne({ project_id: req.params.id, user_id: userid });
   if (!project) return res.status(404).json({ error: "Project not found" });
   res.json(project);
 });
 
 /** PATCH /api/research-lab/projects/:id -- rename or archive. */
 router.patch("/projects/:id", async (req, res) => {
+  const userid  = req.user.id;
   const { title, status } = req.body || {};
   const update = { updated_at: new Date() };
   if (title) update.title = title;
   if (status) update.status = status;
 
   const project = await ResearchProject.findOneAndUpdate(
-    { project_id: req.params.id },
+    { project_id: req.params.id, user_id: userid },
     { $set: update },
     { new: true }
   );
@@ -77,13 +82,15 @@ router.patch("/projects/:id", async (req, res) => {
 
 /** DELETE /api/research-lab/projects/:id */
 router.delete("/projects/:id", async (req, res) => {
-  await ResearchProject.deleteOne({ project_id: req.params.id });
+  const userid  = req.user.id;
+  await ResearchProject.deleteOne({ project_id: req.params.id, user_id: userid });
   res.json({ deleted: true });
 });
 
 /** POST /api/research-lab/projects/:id/duplicate */
 router.post("/projects/:id/duplicate", async (req, res) => {
-  const original = await ResearchProject.findOne({ project_id: req.params.id });
+  const userid  = req.user.id;
+  const original = await ResearchProject.findOne({ project_id: req.params.id, user_id: userid });
   if (!original) return res.status(404).json({ error: "Project not found" });
 
   const copy = original.toObject();

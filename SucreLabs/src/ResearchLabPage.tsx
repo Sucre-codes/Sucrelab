@@ -5,7 +5,7 @@ import {
   fetchResearchProject,
   streamGenerateResearchProject,
   streamAssistantAction,
-  exportResearchProjectUrl,
+  downloadResearchExport,
   type ResearchProject,
   type ProjectSection,
 } from "./lib/api";
@@ -282,13 +282,13 @@ export default function ResearchLabPage() {
         <div className="text-xs uppercase tracking-widest text-[var(--color-muted)]">Export</div>
         <div className="flex gap-2 flex-wrap">
           {(["pdf", "docx", "md", "txt"] as const).map((fmt) => (
-            <a
+            <button
               key={fmt}
-              href={exportResearchProjectUrl(project_id, fmt)}
+              onClick={() => downloadResearchExport(project_id, fmt, project.title || project.topic).catch((err) => alert(err.message))}
               className="text-xs rounded-full border border-[var(--color-border-alt)] px-3 py-1.5 hover:bg-[var(--color-panel-alt)]"
             >
               .{fmt}
-            </a>
+            </button>
           ))}
         </div>
       </div>

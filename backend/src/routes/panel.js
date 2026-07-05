@@ -43,6 +43,7 @@ router.post("/personas", (req, res) => {
  * that's Round 2).
  */
 router.post("/round1", async (req, res) => {
+  const userid  = req.user.id;
   const { session_id, topic, persona_models = {} } = req.body || {};
   if (!session_id || !topic) {
     return res.status(400).json({ error: "session_id and topic are required" });
@@ -65,7 +66,7 @@ router.post("/round1", async (req, res) => {
       { session_id },
       {
         $set: { mode: "panel", topic, category, updated_at: new Date() },
-        $setOnInsert: { session_id, title: topic },
+        $setOnInsert: { session_id, title: topic, user_id: userid },
       },
       { upsert: true }
     );
@@ -510,7 +511,8 @@ router.get("/positions/:session_id", async (req, res) => {
 
 /** GET /api/panel/sessions -- for Recent Sessions, most recently active first. */
 router.get("/sessions", async (req, res) => {
-  const sessions = await Session.find({}).sort({ updated_at: -1 });
+  const userid  = req.user.id;
+  const sessions = await Session.find({ user_id: userid }).sort({ updated_at: -1 });
   res.json({
     sessions: sessions.map((s) => ({
       session_id: s.session_id,
@@ -526,13 +528,14 @@ router.get("/sessions", async (req, res) => {
 
 /** PATCH /api/panel/sessions/:id -- rename or archive. */
 router.patch("/sessions/:id", async (req, res) => {
+  const userid  = req.user.id;
   const { title, archived } = req.body || {};
   const update = { updated_at: new Date() };
   if (title) update.title = title;
   if (typeof archived === "boolean") update.archived = archived;
 
   const session = await Session.findOneAndUpdate(
-    { session_id: req.params.id },
+    { session_id: req.params.id, user_id: userid },
     { $set: update },
     { new: true }
   );
@@ -542,8 +545,11 @@ router.patch("/sessions/:id", async (req, res) => {
 
 /** DELETE /api/panel/sessions/:id -- removes the session and its personas. */
 router.delete("/sessions/:id", async (req, res) => {
+  const userid  = req.user.id;
+  const session = await Session.findOne({ session_id: req.params.id, user_id: userid });
+  if (!session) return res.status(404).json({ error: "Session not found" });
   await Promise.all([
-    Session.deleteOne({ session_id: req.params.id }),
+    Session.deleteOne({ session_id: req.params.id, user_id: userid }),
     Persona.deleteMany({ session_id: req.params.id }),
   ]);
   res.json({ deleted: true });
@@ -556,11 +562,13 @@ router.delete("/sessions/:id", async (req, res) => {
  * persona state.
  */
 router.post("/sessions/:id/duplicate", async (req, res) => {
-  const original = await Session.findOne({ session_id: req.params.id });
+  const userid  = req.user.id;
+  const original = await Session.findOne({ session_id: req.params.id, user_id: userid });
   if (!original) return res.status(404).json({ error: "Session not found" });
 
   const newSessionId = randomUUID();
   await Session.create({
+    user_id: userid,
     session_id: newSessionId,
     mode: original.mode,
     topic: original.topic,

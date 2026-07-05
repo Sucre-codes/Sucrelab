@@ -1,7 +1,15 @@
 import { useState } from "react";
 import { useNavigate } from "react-router-dom";
-import { MessagesSquare, FileSearch, ArrowRight, Archive, Menu, X } from "lucide-react";
-import { getSessionId, resolvePersonas, createResearchProject, type ModelId, type ResearchConfig } from "./lib/api";
+import { MessagesSquare, FileSearch, ArrowRight, Archive, Menu, X, LogOut } from "lucide-react";
+import {
+  getSessionId,
+  resolvePersonas,
+  createResearchProject,
+  getStoredUser,
+  logout,
+  type ModelId,
+  type ResearchConfig,
+} from "./lib/api";
 import ModelSelectModal, { type PersonaOption } from "./ModelSelectModal";
 import ResearchLabSetupModal from "./ResearchLabSetupModal";
 import RecentSessions from "./RecentSessions";
@@ -20,6 +28,12 @@ export default function App() {
   const [modalCategory, setModalCategory] = useState("");
   const [creatingProject, setCreatingProject] = useState(false);
   const navigate = useNavigate();
+  const user = getStoredUser();
+
+  function handleLogout() {
+    logout();
+    navigate("/login");
+  }
 
   async function handleSubmit() {
     if (!topic.trim() || resolving) return;
@@ -93,6 +107,22 @@ export default function App() {
       <div className="flex-1 overflow-y-auto -mx-1 px-1">
         <RecentSessions showArchived={showArchived} />
       </div>
+
+      {user && (
+        <div className="flex items-center gap-2 pt-3 border-t border-[var(--color-border)]">
+          <div className="flex-1 min-w-0">
+            <div className="text-sm truncate text-[var(--color-paper)]">{user.name}</div>
+            <div className="text-[10px] truncate text-[var(--color-muted-alt)]">{user.email}</div>
+          </div>
+          <button
+            onClick={handleLogout}
+            title="Log out"
+            className="text-[var(--color-muted)] hover:text-red-400 p-1.5"
+          >
+            <LogOut size={15} />
+          </button>
+        </div>
+      )}
     </>
   );
 
